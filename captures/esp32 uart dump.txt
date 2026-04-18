@@ -1,0 +1,27 @@
+ets Jun  8 2016 00:22:57
+
+rst:0x1 (POWERON_RESET),boot:0x13 (SPI_FAST_FLASH_BOOT)
+configsip: 0, SPIWP:0xee
+clk_drv:0x00,q_drv:0x00,d_drv:0x00,cs0_drv:0x00,hd_drv:0x00,wp_drv:0x00
+mode:DIO, clock div:2
+load:0x3fff0030,len:1500
+ho 0 tail 12 room 4
+load:0x40078000,len:11784
+ho 0 tail 12 room 4
+load:0x40080400,len:3656
+entry 0x40080620
+[PLF W vesync_printf_device_info:183] ---------------Device Info---------------
+[PLF W vesync_printf_device_info:185] Device MAC: 20:e7:c8:0c:5e:2c 
+[PLF W vesync_printf_device_info:187] Device CID: vsaq46c2fda4ddcb1c90b2e9396cf116
+[PLF W vesync_printf_device_info:188] Device type: Humidifier
+[PLF W vesync_printf_device_info:189] Device model: LUH-A451S-WUSR
+[PLF W vesync_printf_device_info:190] Hardware version: 1.0
+[PLF W vesync_printf_device_info:191] Firmware version: 1.0.02
+[PLF W vesync_printf_device_info:192] Country code: US
+[PLF W vesync_printf_device_info:197] Firmware type: release
+[PLF W vesync_printf_device_info:199] ----------------------------------------
+[PLF E vesync_flash_read_reconnect_reason:540] Function execution failed!!
+[PLF E vesync_report_cloud_basics:119] MQTT is not connected, state = 0!!
+[APP E humidifier_upload_real_data:547] Not real data.
+
+Brownout detector was triggered
