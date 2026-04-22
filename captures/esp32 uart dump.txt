@@ -11,8 +11,8 @@ ho 0 tail 12 room 4
 load:0x40080400,len:3656
 entry 0x40080620
 [PLF W vesync_printf_device_info:183] ---------------Device Info---------------
-[PLF W vesync_printf_device_info:185] Device MAC: 20:e7:c8:0c:5e:2c 
-[PLF W vesync_printf_device_info:187] Device CID: vsaq46c2fda4ddcb1c90b2e9396cf116
+[PLF W vesync_printf_device_info:185] Device MAC: XX:XX:XX:XX:XX:XX 
+[PLF W vesync_printf_device_info:187] Device CID: XXXXXXXXXXXXXXXXX
 [PLF W vesync_printf_device_info:188] Device type: Humidifier
 [PLF W vesync_printf_device_info:189] Device model: LUH-A451S-WUSR
 [PLF W vesync_printf_device_info:190] Hardware version: 1.0

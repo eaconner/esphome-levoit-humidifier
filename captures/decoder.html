@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Levoit OasisMist 450s Decoder - v1</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; line-height: 1.6; color: #333; max-width: 1100px; margin: 0 auto; padding: 2rem; background-color: #f4f7f6; }
+        .container { background: white; padding: 2rem; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        h1 { color: #2c3e50; margin: 0; padding-bottom: 0.5rem; }
+        textarea { width: 100%; height: 80px; padding: 12px; border: 2px solid #ddd; border-radius: 8px; font-family: monospace; box-sizing: border-box; }
+        button { background: #27ae60; color: white; border: none; padding: 12px 24px; border-radius: 6px; cursor: pointer; font-size: 16px; margin-top: 10px; }
+        .result-section { margin-top: 2rem; }
+        table { width: 100%; border-collapse: collapse; background: #fff; }
+        th, td { text-align: left; padding: 10px; border-bottom: 1px solid #eee; }
+        th { background: #f8f9fa; font-size: 11px; color: #666; text-transform: uppercase; }
+        th:nth-child(1), td:nth-child(1) { text-align: center; width: 60px; }
+        th:nth-child(2), td:nth-child(2), th:nth-child(3), td:nth-child(3) { text-align: center; width: 80px; }
+        .valid { color: #27ae60; font-weight: bold; }
+        .invalid { color: #e74c3c; font-weight: bold; }
+        .byte-box { display: inline-block; padding: 2px 8px; background: #eee; border-radius: 4px; font-family: monospace; font-weight: bold; min-width: 35px; text-align: center; }
+        .swatch { display: inline-block; width: 14px; height: 14px; border: 1px solid #333; vertical-align: middle; border-radius: 3px; margin-right: 5px; }
+        
+        /* Row Styles */
+        .header-row { color: #95a5a6; }
+        .payload-type-row { background-color: #e8f4fd; font-weight: bold; }
+        .decoded { background-color: #fff9db; border-left: 4px solid #f1c40f; }
+        .unsure { background-color: #ffd8b1; border-left: 4px solid #f15e0f; }
+        .status-highlight { background-color: #f0fff4; border-left: 4px solid #27ae60; }
+        .combined-row { background-color: #f3f0ff; border-left: 4px solid #9b59b6; }
+        .reserved-row { background-color: #ffb5bb; border-left: 4px solid #8e3434; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Levoit OasisMist 450s Decoder - v1</h1>
+    <textarea id="hexInput"></textarea>
+    <button onclick="parseHex()">Decode</button>
+    <div id="output" class="result-section"></div>
+</div>
+
+<script>
+const DECODERS = {
+    "011141": { // Status Update, can also be 0x011041
+        "name": "Status Update",
+        "map": {
+            // Placeholder for 10-13 Firmware Version? 1.21.0.1? Not sure what Version I have, It's not displayed in app.
+            14: (b) => `Power: <strong>${b === 1 ? 'ON' : 'OFF'}</strong>`,
+            15: (b) => `Water Tank: <strong>${b === 1 ? 'REMOVED' : 'INSTALLED'}</strong>`,
+            16: (b) => `?? Display Config: <strong>${b}</strong> ??`,
+            17: (b) => `?? Auto Stop Status: <strong>${b}</strong> ??`,
+            18: (b) => `Water Level: <strong>${b === 1 ? 'EMPTY' : 'NOT EMPTY'}</strong>`,
+            19: (b) => `Target Humidity: <strong>${b}%</strong>`,
+            20: (b) => `Current Humidity: <strong>${b}%</strong>`,
+            21: (b) => `Current Temperature: <strong>${b}°C (${(b*9/5)+32}°F)`,
+            22: (b) => `?? Mode: <strong>${b}</strong> ??`,
+            23: (b) => `Current Mist Level (1-9): <strong>${b}</strong>`,
+            24: (b) => `Warm Level (0-3): <strong>${b}</strong>`,
+            25: (b) => `?? Other Exception: <strong>${b}</strong> ??`,
+            26: (b) => `RGB Light Switch: <strong>${b === 1 ? 'ON' : 'OFF'}</strong>`,
+            27: (b) => `RGB Light Mode: <strong>${b}</strong>`,
+            // Placeholder for 28-30 RGB Color
+            31: (b) => `Reserved`,
+            32: (b) => `Reserved`,
+            33: (b) => `Cool Mist Level (Alt?): <strong>${b}</strong>`,
+            34: (b) => `Reserved`,
+            35: (b) => `Reserved`,
+            36: (b) => `Reserved`,
+            37: (b) => `Reserved`
+        }
+    },
+    "0129A1": { // Set Wifi State
+        "name": "Set Wifi State",
+        "map": {
+            10: (b) => `Wifi LED: <strong>${b === 1 ? 'SOLID' : (b === 2 ? 'BLINKING // Need to verify...' : 'OFF')}</strong>`
+            // 11: (b) => `UNKNOWN: ${b}`,
+            // 12: (b) => `UNKNOWN: ${b}`,
+            // 13: (b) => `UNKNOWN: ${b}`,
+            // 14: (b) => `UNKNOWN: ${b}`,
+            // 15: (b) => `UNKNOWN: ${b}`
+        }
+    },
+    "0105A1": { // Set Display State
+        "name": "Set Display State",
+        "map": {
+            10: (b) => `Display: <strong>${b === 100 ? 'ON' : 'OFF'}</strong>`
+        }
+    },
+    "0100A0": { // Set Power State
+        "name": "Set Power State",
+        "map": {
+            10: (b) => `Power: <strong>${b === 1 ? 'ON' : 'OFF'}</strong>`
+        }
+    },
+    "01C240": { // Set Night Light
+        "name": "Set Night Light Command",
+        "map": {
+            10: (b) => `Light: <strong>${b === 1 ? 'ON' : 'OFF'}</strong>`
+            // 11: (b) => `UNKNOWN: ${b}`,
+            // Placeholder for 12-14 RGB Color
+        }
+    },
+    "0160A2": { // Set Cool Mist
+        "name": "Set Cool Mist Level",
+        "map": {
+            // 10: (b) => `UNKNOWN: ${b}`
+        }
+    },
+    "01E8A2": { // Set Cool Mist
+        "name": "Set Humidity Level",
+        "map": {
+            // 10: (b) => `UNKNOWN: ${b}`,
+            11: (b) => `Humidity Setpoint: <strong>${b}%</strong>`
+        }
+    }
+};
+
+const PAYLOAD_NAMES = {
+    "011041": "Status Request",
+    "011141": "Auto Status",
+    "01E5A5": "Set Auto Off",
+    "0129A1": "Set WiFi State",
+    "0100A0": "Set Power State",
+    "0105A1": "Set Display State",
+    "01C240": "Set RGB Light",
+    "01E8A2": "Set Humidity Level",
+    "0160A2": "Set Mist Level",
+    "011241": "Set Warm Level"
+};
+
+function parseHex() {
+    const rawInput = document.getElementById('hexInput').value;
+    const cleanHex = rawInput.replace(/0x/gi, '').replace(/[^0-9A-Fa-f]/g, '');
+    if (cleanHex.length < 12) return;
+
+    const bytes = [];
+    for (let i = 0; i < cleanHex.length; i += 2) bytes.push(parseInt(cleanHex.substr(i, 2), 16));
+
+    // Get Checksum
+    let sum = 0;
+    bytes.forEach((b, idx) => { if (idx !== 5) sum += b; });
+    const calcCS = 255 - (sum % 256);
+    const calcCSHex = calcCS.toString(16).toUpperCase().padStart(2, '0');
+    
+    // Get Payload Size
+    const payloadSize = bytes.length - 6;
+    const payloadHex = payloadSize.toString(16).toUpperCase().padStart(2, '0');
+
+    // Identify Payload Type first (Bytes 6, 7, 8)
+    const payloadType = bytes.slice(6, 9).map(b => b.toString(16).toUpperCase().padStart(2, '0')).join('');
+    const activeDecoder = DECODERS[payloadType] || null;
+
+    let html = `<table><thead><tr><th>Byte</th><th>Hex</th><th>Dec</th><th>Meaning</th></tr></thead><tbody>`;
+
+    for (let i = 0; i < bytes.length; i++) {
+        let val = bytes[i].toString(16).toUpperCase().padStart(2, '0');
+        let dec = bytes[i];
+        let meaning = `${bytes[i]}`;
+        let css = "";
+
+        // Header Logic
+        if (i === 0) {
+            meaning = "Start Byte";
+            css = "decoded";
+        }
+        
+        else if (i === 1) {
+            const types = { 0x22: "SEND", 0x12: "ACK", 0x02: "STATUS", 0x52: "ERR" };
+            meaning = `Msg Type: <strong>${types[bytes[i]] || 'UNKNOWN'}</strong>`;
+            css = "decoded";
+        }
+        
+        else if (i === 2) {
+            meaning = "Sequence Number";
+            css = "decoded";
+        }
+        
+        else if (i === 3) {
+            const payloadMatch = bytes[i] === payloadSize;
+            meaning = `Payload Size: ${payloadMatch ? '<span class="valid">OK</span>' : '<span class="invalid">FAIL (Expected: ' + payloadHex + ')</span>'}`;
+            css = "decoded";
+        }
+        
+        else if (i === 4 || i === 9) {
+            meaning = "Reserved";
+            css = "reserved-row";
+        }
+        else if (i === 5) {
+            const isMatch = bytes[i] === calcCS;
+            meaning = `Checksum: ${isMatch ? '<span class="valid">OK</span>' : '<span class="invalid">FAIL (Expected: ' + calcCSHex + ')</span>'}`;
+            css = "decoded";
+        }
+        
+        else if (i === 6) {
+            val = payloadType;
+            dec = (bytes[6] << 16 | bytes[7] << 8 | bytes[8]) >>> 0;
+            meaning = `Payload: <strong>${PAYLOAD_NAMES[payloadType] || 'UNKNOWN'}</strong>`;
+            css = "combined-row";
+            i = 8;
+        }
+
+        else if (i === 10 && payloadType === "011141") {
+            const b10 = bytes[10], b11 = bytes[11], b12 = bytes[12], b13 = bytes[13];
+            val = [b10, b11, b12, b13].map(b => b.toString(16).toUpperCase().padStart(2, '0')).join('');
+            dec = (bytes[10] << 24 | bytes[11] << 16 | bytes[12] << 8 | bytes[13]) >>> 0;
+            meaning = `Firmware Version: <strong>v${b10}.${b11}.${b12}.${b13}</strong>`;
+            css = "combined-row";
+            i = 13;
+        }
+        
+        else if (i === 28 && payloadType === "011141") {
+            const r = bytes[28], g = bytes[29], b = bytes[30];
+            const c = `${r.toString(16).padStart(2,'0')}${g.toString(16).padStart(2,'0')}${b.toString(16).padStart(2,'0')}`;
+            meaning = `RGB Light Color: <div class="swatch" style="background:#${c}"></div><strong>#${c.toUpperCase()}</strong>`;
+            val = `${bytes[28].toString(16).padStart(2,'0')}${bytes[29].toString(16).padStart(2,'0')}${bytes[30].toString(16).padStart(2,'0')}`.toUpperCase();
+            dec = 'RGB';
+            css = "combined-row";
+            i = 30;
+        }
+        
+        else if (i === 12 && payloadType === "01C240") {
+            const r = bytes[12], g = bytes[13], b = bytes[14];
+            const c = `${r.toString(16).padStart(2,'0')}${g.toString(16).padStart(2,'0')}${b.toString(16).padStart(2,'0')}`;
+            meaning = `RGB Light Color: <div class="swatch" style="background:#${c}"></div><strong>#${c.toUpperCase()}</strong>`;
+            val = `${bytes[12].toString(16).padStart(2,'0')}${bytes[13].toString(16).padStart(2,'0')}${bytes[14].toString(16).padStart(2,'0')}`.toUpperCase();
+            dec = 'RGB';
+            css = "combined-row";
+            i = 14;
+        }
+        
+        else {
+            if (activeDecoder && activeDecoder.map[i]) {
+                meaning = `${activeDecoder.map[i](bytes[i])}`;
+                if (meaning.includes('??')) {
+                    css = "unsure";
+                } else if (meaning.includes('Reserved')) {
+                    css = "reserved-row";
+                } else {
+                    css = "decoded";
+                }
+            }
+        }
+    
+        html += `<tr class="${css}"><td>${i}</td><td><span class="byte-box">${val}</span></td><td><span class="byte-box">${dec}</span></td><td>${meaning}</td></tr>`;
+    }
+
+    document.getElementById('output').innerHTML = html + "</tbody></table>";
+}
+</script>
+</body>
+</html>

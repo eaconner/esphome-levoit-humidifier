@@ -15,14 +15,14 @@ CONF_COMMAND_DELAY = "command_delay"
 CONF_COMMAND_TIMEOUT = "command_timeout"
 CONF_STATUS_POLL_SECONDS = "status_poll_seconds"
 
-VALID_MODELS = ["oasismist"]
+VALID_MODELS = ["A451S"]
 
 levoit_ns = cg.esphome_ns.namespace("levoit")
 Levoit = levoit_ns.class_("Levoit", cg.Component, uart.UARTDevice)
 
 CONFIG_SCHEMA = cv.Schema({
     cv.GenerateID(): cv.declare_id(Levoit),
-    cv.Optional(CONF_LEVOIT_MODEL, default="oasismist"): cv.All(cv.string, cv.one_of(*VALID_MODELS)),
+    cv.Optional(CONF_LEVOIT_MODEL, default="A451S"): cv.All(cv.string, cv.one_of(*VALID_MODELS)),
     cv.Optional(CONF_COMMAND_DELAY, default=300): cv.positive_int,
     cv.Optional(CONF_COMMAND_TIMEOUT, default=200): cv.positive_int,
     cv.Optional(CONF_STATUS_POLL_SECONDS, default=0) : cv.positive_int,
